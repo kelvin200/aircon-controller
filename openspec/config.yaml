@@ -1,0 +1,74 @@
+schema: spec-driven
+
+context: |
+  Tech stack: Go (server), Flutter/Dart (Android app)
+  Domain: Home AC control — proxy to Advantage Air e-zone local API for Mitsubishi FDUA reverse cycle aircon
+  Server runs on a Flint 2 router (OpenWrt, ARM, ~256MB RAM) — binary must be small, no CGO, no heavy deps
+  Flutter app is Android-only, home/testing use, no flavors or release pipeline needed
+
+  Principles:
+  - Lightweight above all else — minimal runtime memory and binary size
+  - No tests, no CI, no long-term maintenance scaffolding
+  - Simplest possible solution; avoid abstractions unless obviously needed
+  - Go: stdlib only where possible; avoid reflection-heavy frameworks
+  - Flutter: minimal packages, no state management library, plain setState is fine
+  - No auth, no TLS — local network only
+
+  e-zone API (API shape is FIXED — the base URL is read from the `.env` file at runtime via the `EZONE_BASE` env var):
+  - Base URL: <base>, e.g. http://<ezone-unit-ip>:2025 (set in `.env`)
+  - Get state: GET <base>/getSystemData
+  - The aircon unit is always "ac1" — there is only one
+  - Zone keys are always z01–z09 (9 zones, fixed)
+  - Zone display names are NOT fixed here — they come from the backend at runtime and must not be hard-coded (private)
+
+  getSystemData response shape (structure never changes — only use these fields):
+  aircons.ac1.info:
+    state: "on" | "off"
+    mode: "heat" | "cool" | "vent" | "dry" | "auto"
+    fan: "low" | "medium" | "high"
+    setTemp: float (e.g. 24.0)
+    myZone: int (0 = no myZone)
+    noOfZones: 9
+  aircons.ac1.zones.z01..z09:
+    name: string
+    number: int
+    state: "open" | "close"
+    setTemp: float
+    measuredTemp: float (0.0 means no sensor)
+    value: int (damper %, 0–100)
+
+  e-zone set API (FIXED — these are the only write operations needed):
+  All sets use GET <base>/setAircon?json=<url-encoded-json>
+  The json param targets only ac1 and only the fields being changed.
+
+  Set system on/off:
+    GET /setAircon?json={"ac1":{"info":{"state":"off"}}}
+    GET /setAircon?json={"ac1":{"info":{"state":"on"}}}
+
+  Set mode (heat/cool/vent/dry):
+    GET /setAircon?json={"ac1":{"info":{"state":"on","mode":"heat"}}}
+    GET /setAircon?json={"ac1":{"info":{"state":"on","mode":"cool"}}}
+    GET /setAircon?json={"ac1":{"info":{"state":"on","mode":"vent","fan":"high"}}}
+
+  Set system temperature (also sets all zones to same temp):
+    GET /setAircon?json={"ac1":{"info":{"setTemp":"24"},"zones":{"z01":{"setTemp":"24"},...,"z09":{"setTemp":"24"}}}}
+
+  Set zone open/close:
+    GET /setAircon?json={"ac1":{"zones":{"z01":{"state":"open"}}}}
+    GET /setAircon?json={"ac1":{"zones":{"z01":{"state":"close"}}}}
+
+  Set zone temperature:
+    GET /setAircon?json={"ac1":{"zones":{"z01":{"setTemp":"22"}}}}
+
+  Set fan speed:
+    GET /setAircon?json={"ac1":{"info":{"fan":"low"}}}
+    GET /setAircon?json={"ac1":{"info":{"fan":"medium"}}}
+    GET /setAircon?json={"ac1":{"info":{"fan":"high"}}}
+
+  vent mode = fan only (no heating/cooling); other modes: heat, cool, dry
+
+  Zone naming: the e-zone unit returns a `name` per zone in getSystemData.
+  Real zone names are private (they identify the home layout) and MUST NOT be
+  hard-coded in the app, tests, or this config. The app resolves display names
+  from the backend status payload at runtime; the backend keeps any real names
+  in a local, uncommitted config file. Zone keys (z01-z09) are fixed.

@@ -1,0 +1,18 @@
+# OS cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# OpenSpec change proposals (not versioned)
+openspec/changes/
+
+# Local config (never committed)
+.env
+server.exe
