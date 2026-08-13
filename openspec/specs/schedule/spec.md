@@ -55,3 +55,15 @@ The app SHALL allow the user to delete any individual schedule entry from either
 #### Scenario: Delete entry
 - **WHEN** the user deletes an entry
 - **THEN** the app sends `DELETE /schedules/{id}` and the entry is removed from the list
+
+### Requirement: Zone settings use a grid editor
+
+When creating or editing a schedule entry, the app SHALL present the per-zone settings as a 3-column grid of zone cells, matching the visual language of the Zones page (name + damper value per cell), rather than a vertical list.
+
+#### Scenario: Schedule zone editor renders as a grid
+- **WHEN** the user opens the schedule editor and the current status is loaded
+- **THEN** the zone controls appear as a grid of cells (one per zone), consistent with the Zones page layout
+
+#### Scenario: Zone cells reflect the projected diff
+- **WHEN** a zone's open/close state or damper value differs from the status at the chosen time
+- **THEN** that cell is highlighted to indicate the change, consistent with how the Zones page shows state

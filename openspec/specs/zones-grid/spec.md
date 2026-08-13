@@ -8,23 +8,37 @@ Defines the zone grid: a compact, glanceable grid of the 9 fixed zones where eac
 
 ### Requirement: Zones render as a grid of cells
 
-The app SHALL render all 9 fixed zones as a responsive grid, one cell per zone, where each cell shows the zone name and its current damper value as a number.
+The app SHALL render all 9 fixed zones on a dedicated Zones page (not inside the Status screen) as a responsive grid, one cell per zone, where each cell shows the zone name and its current damper value as a number. The zone name SHALL be the display name supplied by the backend status payload for that zone; the app SHALL NOT contain any hardcoded identifying zone-name constants in source or tests.
 
 #### Scenario: Grid renders all nine zones
-- **WHEN** the Status screen is displayed with a loaded status and the system is on
-- **THEN** all 9 zones appear as cells in a grid, each cell showing the zone name and the current value as a number
+- **WHEN** the Zones page is displayed with a loaded status
+- **THEN** all 9 zones appear as cells in a grid, each cell showing the zone name and the current value as a number, where the name is taken from the backend status payload
 
 #### Scenario: Cells fit the screen width
 - **WHEN** the grid is laid out on the phone
 - **THEN** cells are sized so multiple cells fit per row and the whole grid fits the available width without horizontal scrolling
 
+#### Scenario: No identifying names are committed
+- **WHEN** the source tree is inspected, including tests and committed configuration
+- **THEN** no real/private zone names appear as hardcoded constants (a generic fallback such as the zone id is used when a name is unavailable)
+
 ### Requirement: Active and inactive cell styling
 
 An open (active) zone's cell SHALL use the full accent colour; a closed (inactive) zone's cell SHALL use a disabled, dimmed colour.
 
+When the system is **on**, the accent is the current mode accent colour. When the system is **off**, the accent is black.
+
 #### Scenario: Active zone is fully coloured
 - **WHEN** a zone is open
 - **THEN** its cell is rendered with the full accent colour
+
+#### Scenario: Active zone uses mode accent when on
+- **WHEN** the system is on and a zone is open
+- **THEN** its cell is rendered with the full mode accent colour
+
+#### Scenario: Active zone uses black accent when off
+- **WHEN** the system is off and a zone is open
+- **THEN** its cell is rendered with black as the accent colour, clearly distinct from the dimmed inactive cells
 
 #### Scenario: Inactive zone is dimmed
 - **WHEN** a zone is closed
@@ -70,14 +84,14 @@ Long-pressing a zone cell SHALL reveal a slider (0–100) for adjusting that zon
 - **WHEN** a value command fails
 - **THEN** the cell's displayed value reverts to its previous value
 
-### Requirement: Grid disabled when the system is off
+### Requirement: Zones are always interactive
 
-When the system power is off, the zone grid SHALL render in a disabled state and cells SHALL NOT respond to tap or long-press.
+Zone cells SHALL respond to tap and long-press whether the system is on or off, so the user can stage zone open/close and damper values before (or without) turning the system on.
 
-#### Scenario: Grid is inert while off
-- **WHEN** the system power is off and the user taps or long-presses a zone cell
-- **THEN** no command is sent and the cell's appearance stays disabled
+#### Scenario: Tap toggles a zone while the system is off
+- **WHEN** the system is off and the user taps a zone cell
+- **THEN** the app sends the corresponding zone command and the cell updates to reflect the new state
 
-#### Scenario: Grid re-enables when power returns
-- **WHEN** the system power turns on
-- **THEN** the grid re-enables and cells respond to tap and long-press again
+#### Scenario: Long-press reveals the slider while the system is off
+- **WHEN** the system is off and the user long-presses a zone cell
+- **THEN** the value slider appears and commits a value command when adjusted
