@@ -51,6 +51,38 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
     return dt.toString().substring(0, 19);
   }
 
+  Future<void> _clearAll() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear all errors?'),
+        content: const Text('This permanently deletes every error from the log and the database.'),
+        actions: [
+          TextButton(
+            key: const Key('error-clear-cancel'),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            key: const Key('error-clear-confirm'),
+            style: ButtonStyle(
+              foregroundColor: WidgetStatePropertyAll(AppColors.of(context).coral),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Clear all'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await clearErrors();
+      _load();
+    } catch (e) {
+      if (mounted) setState(() => _loadError = e.toString());
+    }
+  }
+
   Color _sourceColour(String source) {
     switch (source) {
       case 'scheduler': return AppColors.dark.orange;
@@ -96,6 +128,21 @@ class _ErrorLogScreenState extends State<ErrorLogScreen> {
     return Column(
       children: [
         TopProgressBar(onComplete: _load),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              key: const Key('error-clear-all'),
+              onPressed: _clearAll,
+              icon: const Icon(Icons.delete_sweep_outlined),
+              label: const Text('Clear all'),
+              style: ButtonStyle(
+                foregroundColor: WidgetStatePropertyAll(AppColors.of(context).coral),
+              ),
+            ),
+          ),
+        ),
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.all(16),

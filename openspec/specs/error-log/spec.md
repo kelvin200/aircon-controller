@@ -22,7 +22,7 @@ The server SHALL write an error row to the `errors` table whenever a failure occ
 - **THEN** the server inserts a row into `errors` with source `"handler"` and returns an appropriate HTTP error code
 
 ### Requirement: App displays error log screen
-The app SHALL provide an Error Log screen that fetches all entries from `GET /errors` and displays them ordered by time descending (newest first), showing timestamp, source, and message for each entry.
+The app SHALL provide an Error Log screen that fetches all entries from `GET /errors` and displays them ordered by time descending (newest first), showing timestamp, source, and message for each entry. The screen SHALL also offer a "Clear all" action that deletes every error from the backend.
 
 #### Scenario: Error log loads
 - **WHEN** the user opens the Error Log screen
@@ -31,3 +31,15 @@ The app SHALL provide an Error Log screen that fetches all entries from `GET /er
 #### Scenario: No errors
 - **WHEN** the errors table is empty
 - **THEN** the screen shows an empty state message
+
+#### Scenario: Clear all errors
+- **WHEN** the user activates the "Clear all" action and confirms
+- **THEN** the app sends `DELETE /errors`, the backend hard-deletes every row from the errors table, and the list reloads empty
+
+### Requirement: Server deletes all errors
+
+The server SHALL provide a `DELETE /errors` endpoint that hard-deletes every row from the errors table (no soft delete) and returns 200.
+
+#### Scenario: Clear all succeeds
+- **WHEN** a `DELETE /errors` request is received
+- **THEN** the server deletes all rows from the errors table and responds 200

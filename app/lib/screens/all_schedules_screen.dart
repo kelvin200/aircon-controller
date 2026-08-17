@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../api.dart';
+import '../api.dart' as api;
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/gradient_action.dart';
@@ -8,7 +8,19 @@ import '../widgets/status_pill.dart';
 import '../widgets/top_progress_bar.dart';
 
 class AllSchedulesScreen extends StatefulWidget {
-  const AllSchedulesScreen({super.key});
+  /// Test seams: default to the real API when not provided.
+  final Future<List<ScheduleEntry>> Function()? getSchedules;
+  final Future<Map<String, String>> Function()? getZoneNames;
+  final Future<void> Function(int id)? triggerSchedule;
+  final Future<void> Function(int id)? deleteSchedule;
+
+  const AllSchedulesScreen({
+    super.key,
+    this.getSchedules,
+    this.getZoneNames,
+    this.triggerSchedule,
+    this.deleteSchedule,
+  });
 
   @override
   State<AllSchedulesScreen> createState() => _AllSchedulesScreenState();
@@ -27,9 +39,9 @@ class _AllSchedulesScreenState extends State<AllSchedulesScreen> {
 
   Future<void> _load() async {
     try {
-      final all = await getSchedules()
+      final all = await (widget.getSchedules ?? api.getSchedules)()
         ..sort((a, b) => a.fireAt.compareTo(b.fireAt));
-      final names = await getZoneNames();
+      final names = await (widget.getZoneNames ?? api.getZoneNames)();
       setState(() { _schedules = all; _error = null; _zoneNames = names; });
     } catch (e) {
       setState(() { _error = e.toString(); });
@@ -37,12 +49,55 @@ class _AllSchedulesScreenState extends State<AllSchedulesScreen> {
   }
 
   Future<void> _delete(int id) async {
-    await deleteSchedule(id);
+    final confirmed = await _confirm(
+      title: 'Delete schedule?',
+      body: 'This permanently removes the schedule.',
+    );
+    if (!confirmed) return;
+    await (widget.deleteSchedule ?? api.deleteSchedule)(id);
     await _load();
   }
 
+  Future<void> _trigger(int id) async {
+    final confirmed = await _confirm(
+      title: 'Run schedule now?',
+      body: 'This applies the schedule immediately and removes it from the list.',
+    );
+    if (!confirmed) return;
+    try {
+      await (widget.triggerSchedule ?? api.triggerSchedule)(id);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+      return;
+    }
+    await _load();
+  }
+
+  Future<bool> _confirm({required String title, required String body}) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(
+            key: const Key('all-schedule-confirm-cancel'),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            key: const Key('all-schedule-confirm-ok'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    return result == true;
+  }
+
   Future<void> _clearPast() async {
-    await deletePastSchedules();
+    await api.deletePastSchedules();
     await _load();
   }
 
@@ -109,6 +164,20 @@ class _AllSchedulesScreenState extends State<AllSchedulesScreen> {
                                         ],
                                       ),
                                     ),
+                                    if (!fired) ...[
+                                      IconButton(
+                                        key: Key('all-schedule-item-$i-trigger'),
+                                        icon: const Icon(Icons.play_arrow_outlined),
+                                        color: AppColors.of(context).green,
+                                        onPressed: () => _trigger(e.id),
+                                      ),
+                                      IconButton(
+                                        key: Key('all-schedule-item-$i-delete'),
+                                        icon: const Icon(Icons.delete_outline),
+                                        color: AppColors.of(context).coral,
+                                        onPressed: () => _delete(e.id),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),

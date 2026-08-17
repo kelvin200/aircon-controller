@@ -50,11 +50,35 @@ The app SHALL allow the user to delete all fired entries in one action from the 
 - **THEN** the app sends `DELETE /schedules/past` and the list refreshes showing only pending entries
 
 ### Requirement: Delete a single schedule entry
-The app SHALL allow the user to delete any individual schedule entry from either schedule screen.
+The app SHALL allow the user to delete any individual schedule entry from either schedule screen. Deletion SHALL require explicit confirmation before it takes effect.
 
 #### Scenario: Delete entry
-- **WHEN** the user deletes an entry
+- **WHEN** the user confirms deletion of an entry
 - **THEN** the app sends `DELETE /schedules/{id}` and the entry is removed from the list
+
+#### Scenario: Delete requires confirmation
+- **WHEN** the user taps the delete action on an entry
+- **THEN** the app shows a confirmation dialog; the entry is deleted only if the user confirms
+
+### Requirement: Trigger a schedule immediately
+
+The app SHALL allow the user to trigger a pending schedule immediately. For each schedule row, alongside the delete action, the app SHALL show a "play" action that, after confirmation, applies the schedule's payload to the e-zone unit right away and then removes the entry from the list (hard delete, no soft delete).
+
+#### Scenario: Trigger now appears as a row action
+- **WHEN** a schedule row is shown in either schedule screen
+- **THEN** a play icon is shown next to the delete icon
+
+#### Scenario: Trigger now applies and removes
+- **WHEN** the user confirms the play action on an entry
+- **THEN** the app sends `POST /schedules/{id}/trigger`, the backend applies the entry's payload to the e-zone unit and hard-deletes the entry, and the entry disappears from the list
+
+#### Scenario: Trigger requires confirmation
+- **WHEN** the user taps the play action on an entry
+- **THEN** the app shows a confirmation dialog; the entry is triggered only if the user confirms
+
+#### Scenario: Trigger now backend behaviour
+- **WHEN** the server receives `POST /schedules/{id}/trigger`
+- **THEN** it applies the schedule's payload to the e-zone unit (same logic as the scheduler) and hard-deletes that schedule row, responding 200
 
 ### Requirement: Zone settings use a grid editor
 

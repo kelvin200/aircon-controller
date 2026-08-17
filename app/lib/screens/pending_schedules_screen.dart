@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../api.dart';
+import '../api.dart' as api;
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/gradient_action.dart';
@@ -10,7 +10,19 @@ import 'add_schedule_sheet.dart';
 import 'all_schedules_screen.dart';
 
 class PendingSchedulesScreen extends StatefulWidget {
-  const PendingSchedulesScreen({super.key});
+  /// Test seams: default to the real API when not provided.
+  final Future<List<ScheduleEntry>> Function()? getSchedules;
+  final Future<Map<String, String>> Function()? getZoneNames;
+  final Future<void> Function(int id)? triggerSchedule;
+  final Future<void> Function(int id)? deleteSchedule;
+
+  const PendingSchedulesScreen({
+    super.key,
+    this.getSchedules,
+    this.getZoneNames,
+    this.triggerSchedule,
+    this.deleteSchedule,
+  });
 
   @override
   State<PendingSchedulesScreen> createState() => _PendingSchedulesScreenState();
@@ -43,10 +55,10 @@ class _PendingSchedulesScreenState extends State<PendingSchedulesScreen> {
   Future<void> _load() async {
     setState(() { _isLoading = true; });
     try {
-      final all = await getSchedules();
+      final all = await (widget.getSchedules ?? api.getSchedules)();
       final pending = all.where((e) => e.firedAt == null).toList()
         ..sort((a, b) => a.fireAt.compareTo(b.fireAt));
-      final names = await getZoneNames();
+      final names = await (widget.getZoneNames ?? api.getZoneNames)();
       if (!mounted) return;
       setState(() { _pending = pending; _error = null; _isLoading = false; _zoneNames = names; });
     } catch (e) {
@@ -55,8 +67,51 @@ class _PendingSchedulesScreenState extends State<PendingSchedulesScreen> {
   }
 
   Future<void> _delete(int id) async {
-    await deleteSchedule(id);
+    final confirmed = await _confirm(
+      title: 'Delete schedule?',
+      body: 'This permanently removes the schedule.',
+    );
+    if (!confirmed) return;
+    await (widget.deleteSchedule ?? api.deleteSchedule)(id);
     await _load();
+  }
+
+  Future<void> _trigger(int id) async {
+    final confirmed = await _confirm(
+      title: 'Run schedule now?',
+      body: 'This applies the schedule immediately and removes it from the list.',
+    );
+    if (!confirmed) return;
+    try {
+      await (widget.triggerSchedule ?? api.triggerSchedule)(id);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+      return;
+    }
+    await _load();
+  }
+
+  Future<bool> _confirm({required String title, required String body}) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(
+            key: const Key('schedule-confirm-cancel'),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            key: const Key('schedule-confirm-ok'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    return result == true;
   }
 
   void _openAdd() async {
@@ -146,6 +201,12 @@ class _PendingSchedulesScreenState extends State<PendingSchedulesScreen> {
                                     ],
                                   ],
                                 ),
+                              ),
+                              IconButton(
+                                key: Key('schedule-item-$i-trigger'),
+                                icon: const Icon(Icons.play_arrow_outlined),
+                                color: AppColors.of(context).green,
+                                onPressed: () => _trigger(e.id),
                               ),
                               IconButton(
                                 key: Key('schedule-item-$i-delete'),

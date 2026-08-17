@@ -89,3 +89,13 @@ Future<List<AppError>> getErrors() async {
   final List<dynamic> list = jsonDecode(resp.body);
   return list.map((e) => AppError.fromJson(e)).toList();
 }
+
+Future<void> clearErrors() async {
+  final resp = await http.delete(Uri.parse('$_base/errors'));
+  if (resp.statusCode < 200 || resp.statusCode >= 300) throw Exception('API DELETE /errors ${resp.statusCode}');
+}
+
+Future<void> triggerSchedule(int id) async {
+  final resp = await http.post(Uri.parse('$_base/schedules/$id/trigger'));
+  if (resp.statusCode < 200 || resp.statusCode >= 300) throw Exception('API POST /schedules/$id/trigger ${resp.statusCode}');
+}
