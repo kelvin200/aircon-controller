@@ -96,6 +96,23 @@ func deleteSchedule(db *sql.DB, id int64) error {
 	return err
 }
 
+func getSchedule(db *sql.DB, id int64) (*Schedule, error) {
+	row := db.QueryRow(
+		`SELECT id, fire_at, state, mode, fan, set_temp, zones, fired_at FROM schedules WHERE id = ?`,
+		id,
+	)
+	var s Schedule
+	var zones []byte
+	if err := row.Scan(&s.ID, &s.FireAt, &s.State, &s.Mode, &s.Fan, &s.SetTemp, &zones, &s.FiredAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	s.Zones = json.RawMessage(zones)
+	return &s, nil
+}
+
 func deletePastSchedules(db *sql.DB) error {
 	_, err := db.Exec(`DELETE FROM schedules WHERE fired_at IS NOT NULL`)
 	return err
@@ -133,6 +150,11 @@ func logError(db *sql.DB, source, message string) error {
 		`INSERT INTO errors (occurred_at, source, message) VALUES (?, ?, ?)`,
 		time.Now().Unix(), source, message,
 	)
+	return err
+}
+
+func deleteAllErrors(db *sql.DB) error {
+	_, err := db.Exec(`DELETE FROM errors`)
 	return err
 }
 

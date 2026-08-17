@@ -178,13 +178,17 @@ func handleDeletePast(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// handleSchedule handles DELETE /schedules/{id}
+// handleSchedule handles DELETE /schedules/{id} and POST /schedules/{id}/trigger
 func handleSchedule(w http.ResponseWriter, r *http.Request) {
+	idStr := strings.TrimPrefix(r.URL.Path, "/schedules/")
+	if strings.HasSuffix(idStr, "/trigger") {
+		handleTriggerSchedule(w, r, strings.TrimSuffix(idStr, "/trigger"))
+		return
+	}
 	if r.Method != http.MethodDelete {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	idStr := strings.TrimPrefix(r.URL.Path, "/schedules/")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		http.Error(w, "invalid id", http.StatusBadRequest)
@@ -198,7 +202,49 @@ func handleSchedule(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// handleTriggerSchedule handles POST /schedules/{id}/trigger: applies the
+// schedule's payload to the e-zone unit immediately and hard-deletes the entry.
+func handleTriggerSchedule(w http.ResponseWriter, r *http.Request, idStr string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	s, err := getSchedule(db, id)
+	if err != nil {
+		logError(db, "handler", err.Error())
+		http.Error(w, "db error", http.StatusInternalServerError)
+		return
+	}
+	if s == nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	if err := setAircon(scheduleToPayload(*s)); err != nil {
+		logError(db, "scheduler", err.Error())
+	}
+	if err := deleteSchedule(db, id); err != nil {
+		logError(db, "handler", err.Error())
+		http.Error(w, "db error", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
 func handleListErrors(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodDelete {
+		if err := deleteAllErrors(db); err != nil {
+			logError(db, "handler", err.Error())
+			http.Error(w, "db error", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
